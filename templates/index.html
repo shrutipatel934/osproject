@@ -4,16 +4,354 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced Hybrid Scheduler</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .input-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .input-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .input-header h2 {
+            color: #333;
+            font-size: 1.5em;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .process-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .process-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .process-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .process-table input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.95em;
+        }
+
+        .process-table input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .process-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .delete-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results-section {
+            display: none;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Hybrid Scheduler</h1>
+            <h1>🚀 Hybrid Scheduler</h1>
             <p>Priority-Based Scheduling with Aging and Round Robin</p>
         </div>
+
         <div class="content">
-            <h2>Coming Soon...</h2>
+            <div class="input-section">
+                <div class="input-header">
+                    <h2>📋 Process Configuration</h2>
+                    <button class="btn btn-primary" onclick="addProcess()">➕ Add Process</button>
+                </div>
+
+                <div class="preset-buttons">
+                    <button class="btn btn-secondary" onclick="loadSampleData()">Load Sample Data</button>
+                    <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
+                </div>
+
+                <table class="process-table" id="processTable">
+                    <thead>
+                        <tr>
+                            <th>PID</th>
+                            <th>Arrival Time</th>
+                            <th>Burst Time</th>
+                            <th>Priority (Lower = Higher)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="processTableBody"></tbody>
+                </table>
+
+                <div style="margin-top: 20px; text-align: center">
+                    <button class="btn btn-success" onclick="runScheduler()">▶️ Run Scheduler</button>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px; color: #667eea; font-weight: bold">Processing...</p>
+            </div>
+
+            <div class="results-section" id="resultsSection">
+                <h3>Results will appear here...</h3>
+            </div>
         </div>
     </div>
+
+    <script>
+        let processCount = 0;
+
+        function addProcess() {
+            processCount++;
+            const tbody = document.getElementById("processTableBody");
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td><input type="number" value="\${processCount}" readonly style="background: #f0f0f0;"></td>
+                <td><input type="number" class="arrival-time" value="0" min="0"></td>
+                <td><input type="number" class="burst-time" value="1" min="1"></td>
+                <td><input type="number" class="priority" value="1" min="1"></td>
+                <td><button class="delete-btn" onclick="deleteProcess(this)">🗑️</button></td>
+            `;
+        }
+
+        function deleteProcess(btn) {
+            btn.closest("tr").remove();
+        }
+
+        function clearAll() {
+            document.getElementById("processTableBody").innerHTML = "";
+            processCount = 0;
+            document.getElementById("resultsSection").style.display = "none";
+        }
+
+        function loadSampleData() {
+            clearAll();
+            const sampleData = [
+                { arrival: 0, burst: 8, priority: 3 },
+                { arrival: 2, burst: 4, priority: 2 },
+                { arrival: 4, burst: 2, priority: 1 },
+                { arrival: 5, burst: 6, priority: 2 },
+                { arrival: 15, burst: 5, priority: 1 }
+            ];
+
+            sampleData.forEach((data) => {
+                processCount++;
+                const tbody = document.getElementById("processTableBody");
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><input type="number" value="\${processCount}" readonly style="background: #f0f0f0;"></td>
+                    <td><input type="number" class="arrival-time" value="\${data.arrival}" min="0"></td>
+                    <td><input type="number" class="burst-time" value="\${data.burst}" min="1"></td>
+                    <td><input type="number" class="priority" value="\${data.priority}" min="1"></td>
+                    <td><button class="delete-btn" onclick="deleteProcess(this)">🗑️</button></td>
+                `;
+            });
+        }
+
+        async function runScheduler() {
+            const rows = document.querySelectorAll("#processTableBody tr");
+            if (rows.length === 0) {
+                alert("Please add at least one process!");
+                return;
+            }
+
+            const processes = [];
+            let valid = true;
+
+            rows.forEach((row, index) => {
+                const arrival = parseInt(row.querySelector(".arrival-time").value);
+                const burst = parseInt(row.querySelector(".burst-time").value);
+                const priority = parseInt(row.querySelector(".priority").value);
+
+                if (isNaN(arrival) || isNaN(burst) || isNaN(priority) || 
+                    burst <= 0 || arrival < 0 || priority <= 0) {
+                    alert(\`Invalid input in Process \${index + 1}\`);
+                    valid = false;
+                    return;
+                }
+
+                processes.push({
+                    pid: index + 1,
+                    arrival_time: arrival,
+                    burst_time: burst,
+                    priority: priority
+                });
+            });
+
+            if (!valid) return;
+
+            document.getElementById("loading").classList.add("active");
+            document.getElementById("resultsSection").style.display = "none";
+
+            try {
+                const response = await fetch("/schedule", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ processes: processes })
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    alert("Error: " + result.error);
+                    return;
+                }
+
+                alert("Scheduling completed! (Visualization coming in next commit)");
+                console.log(result);
+            } catch (error) {
+                alert("Error: " + error.message);
+            } finally {
+                document.getElementById("loading").classList.remove("active");
+            }
+        }
+
+        // Load sample data on page load
+        window.onload = () => {
+            loadSampleData();
+        };
+    </script>
 </body>
 </html>
