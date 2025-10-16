@@ -1,32 +1,34 @@
+from flask import Flask, render_template, request, jsonify
 from collections import deque
-from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Constants (can be adjusted)
-RR_WAIT_THRESHOLD = 5
-TIME_QUANTUM = 3
-AGING_THRESHOLD = 4
+# --- Configuration Constants ---
+AGING_THRESHOLD = 8
+RR_WAIT_THRESHOLD = 10
+TIME_QUANTUM = 4
 
 class Process:
+    """Represents a process with all necessary attributes for complex scheduling."""
     def __init__(self, pid, arrival_time, burst_time, priority):
         self.pid = pid
         self.arrival_time = arrival_time
         self.burst_time = burst_time
-        self.priority = priority
         self.original_priority = priority
+        
         self.current_priority = priority
         self.remaining_time = burst_time
         self.start_time = -1
         self.completion_time = 0
-        self.response_time = 0
+        self.is_completed = False
+        
         self.total_wait_time = 0
         self.wait_time_since_last_boost = 0
-        self.quantum_used = 0
-        self.is_completed = False
+        self.response_time = -1
         self.is_in_rr_queue = False
+        self.quantum_used = 0
 
-def hybrid_scheduler(processes):
+def hybrid_scheduler(processes, priority_rule):
     """Implements the advanced hybrid scheduler with improved aging."""
     current_time = 0
     completed_processes = 0
@@ -39,6 +41,7 @@ def hybrid_scheduler(processes):
     
     processes.sort(key=lambda p: p.arrival_time)
     process_idx = 0
+    
     last_run_pid = -1
 
     while completed_processes < n:
@@ -72,7 +75,12 @@ def hybrid_scheduler(processes):
         # Step 2: Select Process to Run
         process_to_run = None
         if priority_queue:
-            priority_queue.sort(key=lambda p: (p.current_priority, p.remaining_time))
+            if priority_rule == '1':
+                sort_key = lambda p: (p.current_priority, p.remaining_time)
+            else:
+                sort_key = lambda p: (-p.current_priority, p.remaining_time)
+            
+            priority_queue.sort(key=sort_key)
             process_to_run = priority_queue[0]
         elif rr_queue:
             process_to_run = rr_queue[0]
@@ -136,8 +144,18 @@ def hybrid_scheduler(processes):
                 p.total_wait_time += 1
                 p.wait_time_since_last_boost += 1
                 if p.wait_time_since_last_boost >= AGING_THRESHOLD:
-                    if p.current_priority > 1:
-                        p.current_priority -= 1
+                    if priority_rule == '1':
+                        if p.current_priority > 1:
+                            p.current_priority -= 1
+                            events.append({
+                                'time': current_time,
+                                'type': 'aging',
+                                'pid': p.pid,
+                                'message': f'P{p.pid} priority boosted to {p.current_priority}'
+                            })
+                            p.wait_time_since_last_boost = 0
+                    else:
+                        p.current_priority += 1
                         events.append({
                             'time': current_time,
                             'type': 'aging',
@@ -182,11 +200,16 @@ def hybrid_scheduler(processes):
         'events': events
     }
 
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 @app.route('/schedule', methods=['POST'])
 def schedule():
     try:
         data = request.json
         processes_data = data.get('processes', [])
+        priority_rule = data.get('priority_rule', '1')
         
         if not processes_data:
             return jsonify({'error': 'No processes provided'}), 400
@@ -200,8 +223,11 @@ def schedule():
                 priority=p['priority']
             ))
         
-        result = hybrid_scheduler(processes)
+        result = hybrid_scheduler(processes, priority_rule)
         return jsonify(result)
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
