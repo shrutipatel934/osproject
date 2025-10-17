@@ -75,9 +75,12 @@ def hybrid_scheduler(processes, priority_rule):
         # Step 2: Select Process to Run
         process_to_run = None
         if priority_queue:
+            # MODIFIED: Sorting logic now depends on the priority_rule
             if priority_rule == '1':
+                # Lower number = higher priority
                 sort_key = lambda p: (p.current_priority, p.remaining_time)
             else:
+                # Higher number = higher priority (use negative for descending sort)
                 sort_key = lambda p: (-p.current_priority, p.remaining_time)
             
             priority_queue.sort(key=sort_key)
@@ -144,8 +147,9 @@ def hybrid_scheduler(processes, priority_rule):
                 p.total_wait_time += 1
                 p.wait_time_since_last_boost += 1
                 if p.wait_time_since_last_boost >= AGING_THRESHOLD:
+                    # MODIFIED: Aging logic now depends on the priority_rule
                     if priority_rule == '1':
-                        if p.current_priority > 1:
+                        if p.current_priority > 1:  # Don't go below 1
                             p.current_priority -= 1
                             events.append({
                                 'time': current_time,
@@ -154,7 +158,8 @@ def hybrid_scheduler(processes, priority_rule):
                                 'message': f'P{p.pid} priority boosted to {p.current_priority}'
                             })
                             p.wait_time_since_last_boost = 0
-                    else:
+                    else:  # '2'
+                        # For higher-is-better, just keep increasing priority
                         p.current_priority += 1
                         events.append({
                             'time': current_time,
